@@ -1,0 +1,17 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Dataset - never push this
+training/dataset/
+training/*.npy
+
+# Models - optional, they are large
+# models/
+
+# OS
+.DS_Store

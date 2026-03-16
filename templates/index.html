@@ -1,0 +1,376 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EmoSense AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #2c2c54);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            padding: 40px;
+            border-radius: 20px;
+            width: 420px;
+            text-align: center;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+
+        h1 { font-size: 28px; margin-bottom: 8px; }
+        p { font-size: 14px; opacity: 0.75; margin-bottom: 30px; }
+
+        .btn-group { display: flex; gap: 12px; justify-content: center; margin-bottom: 20px; }
+
+        button {
+            padding: 12px 24px;
+            font-size: 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 600;
+        }
+
+        #recordBtn { background: #ef4444; color: white; }
+        #recordBtn:hover { background: #dc2626; }
+        #recordBtn.recording { background: #991b1b; }
+
+        #submitBtn { background: #6c5ce7; color: white; }
+        #submitBtn:hover { background: #a29bfe; }
+        #submitBtn:disabled { background: #444; cursor: not-allowed; }
+
+        .status {
+            font-size: 13px;
+            opacity: 0.7;
+            margin-bottom: 15px;
+            min-height: 20px;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            display: none;
+            text-align: left;
+        }
+
+        .emotion-label {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .feedback-text {
+            font-size: 14px;
+            line-height: 1.7;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎙 EmoSense AI</h1>
+    <p>Record your voice and receive intelligent emotional feedback</p>
+
+    <div class="btn-group">
+        <button id="recordBtn">🔴 Start Recording</button>
+        <button id="submitBtn" disabled>Submit</button>
+    </div>
+
+    <div class="status" id="status">Press Start Recording to begin</div>
+
+    <div class="result" id="result">
+        <div class="emotion-label" id="emotionText"></div>
+        <div class="feedback-text" id="feedbackText"></div>
+    </div>
+</div>
+
+<script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let audioBlob;
+
+    const recordBtn = document.getElementById("recordBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const statusDiv = document.getElementById("status");
+    const resultDiv = document.getElementById("result");
+
+    recordBtn.addEventListener("click", async () => {
+        if (!mediaRecorder || mediaRecorder.state === "inactive") {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.start();
+            recordBtn.textContent = "⏹ Stop Recording";
+            recordBtn.classList.add("recording");
+            statusDiv.textContent = "Recording... speak now";
+            submitBtn.disabled = true;
+
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+            mediaRecorder.onstop = () => {
+                audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                submitBtn.disabled = false;
+                statusDiv.textContent = "Recording complete. Click Submit to analyze.";
+            };
+        } else {
+            mediaRecorder.stop();
+            recordBtn.textContent = "🔴 Start Recording";
+            recordBtn.classList.remove("recording");
+        }
+    });
+
+    submitBtn.addEventListener("click", async () => {
+        if (!audioBlob) return;
+
+        const formData = new FormData();
+        formData.append("file", audioBlob, "recording.webm");
+
+        statusDiv.textContent = "Analyzing your emotion...";
+        resultDiv.style.display = "none";
+        submitBtn.disabled = true;
+
+        try {
+            const response = await fetch("/predict", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById("emotionText").textContent =
+                    "Detected Emotion: " + data.emotion.toUpperCase();
+                document.getElementById("feedbackText").textContent = data.feedback;
+                resultDiv.style.display = "block";
+                statusDiv.textContent = "Analysis complete.";
+            } else {
+                statusDiv.textContent = "Error: " + data.error;
+            }
+        } catch (err) {
+            statusDiv.textContent = "Could not connect to server.";
+        }
+
+        submitBtn.disabled = false;
+    });
+</script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EmoSense AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #2c2c54);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .hero {
+            text-align: center;
+            margin-bottom: 40px;
+            max-width: 700px;
+        }
+        .hero h2 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        .hero p {
+            font-size: 15px;
+            opacity: 0.8;
+            line-height: 1.7;
+        }
+        .quote-strip {
+            margin-top: 20px;
+            font-size: 13px;
+            opacity: 0.6;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            padding: 40px;
+            border-radius: 20px;
+            width: 420px;
+            text-align: center;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+        h1 { font-size: 26px; margin-bottom: 8px; }
+        .subtitle { font-size: 14px; opacity: 0.75; margin-bottom: 20px; }
+        .positive-message {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        .btn-group { display: flex; gap: 12px; justify-content: center; margin-bottom: 20px; }
+        button {
+            padding: 12px 24px;
+            font-size: 15px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.3s ease;
+        }
+        #recordBtn { background: #ef4444; color: white; }
+        #recordBtn:hover { background: #dc2626; }
+        #submitBtn { background: #6c5ce7; color: white; }
+        #submitBtn:hover { background: #a29bfe; }
+        #submitBtn:disabled { background: #444; cursor: not-allowed; }
+        .status {
+            font-size: 13px;
+            opacity: 0.7;
+            margin-bottom: 15px;
+            min-height: 20px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            display: none;
+            text-align: left;
+        }
+        .emotion-label {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .feedback-text {
+            font-size: 14px;
+            line-height: 1.7;
+            opacity: 0.9;
+        }
+        footer {
+            margin-top: 40px;
+            font-size: 12px;
+            opacity: 0.6;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <h2>Your Voice Reflects Your Inner World</h2>
+    <p>
+        Every tone, every pause, every vibration carries emotional signals. EmoSense AI listens beyond words and helps you understand what your voice reveals about your current state.
+    </p>
+    <div class="quote-strip">
+        Awareness leads to growth • Reflection builds strength • Emotions are information, not weakness
+    </div>
+</div>
+
+<div class="container">
+    <h1>EmoSense AI</h1>
+    <div class="subtitle">Record. Reflect. Reset.</div>
+
+    <div class="positive-message">
+        Take a moment to speak naturally. There is no right or wrong emotion — only awareness. Growth begins when we understand ourselves.
+    </div>
+
+    <div class="btn-group">
+        <button id="recordBtn">Start Recording</button>
+        <button id="submitBtn" disabled>Submit</button>
+    </div>
+
+    <div class="status" id="status">Press Start Recording to begin</div>
+
+    <div class="result" id="result">
+        <div class="emotion-label" id="emotionText"></div>
+        <div class="feedback-text" id="feedbackText"></div>
+    </div>
+</div>
+
+<footer>
+    © 2026 All Rights Reserved to EmoSenseAI
+</footer>
+
+<script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let audioBlob;
+
+    const recordBtn = document.getElementById("recordBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const statusDiv = document.getElementById("status");
+    const resultDiv = document.getElementById("result");
+
+    recordBtn.addEventListener("click", async () => {
+        if (!mediaRecorder || mediaRecorder.state === "inactive") {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            mediaRecorder.start();
+            recordBtn.textContent = "Stop Recording";
+            statusDiv.textContent = "Recording... speak naturally";
+            submitBtn.disabled = true;
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+                submitBtn.disabled = false;
+                statusDiv.textContent = "Recording complete. Click Submit to analyze.";
+            };
+        } else {
+            mediaRecorder.stop();
+            recordBtn.textContent = "Start Recording";
+        }
+    });
+
+    submitBtn.addEventListener("click", async () => {
+        if (!audioBlob) return;
+        const formData = new FormData();
+        formData.append("file", audioBlob, "recording.webm");
+        statusDiv.textContent = "Analyzing your emotion...";
+        resultDiv.style.display = "none";
+        submitBtn.disabled = true;
+        try {
+            const response = await fetch("/predict", {
+                method: "POST",
+                body: formData
+            });
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById("emotionText").textContent =
+                    "Detected Emotion: " + data.emotion.toUpperCase();
+                document.getElementById("feedbackText").textContent = data.feedback;
+                resultDiv.style.display = "block";
+                statusDiv.textContent = "Analysis complete.";
+            } else {
+                statusDiv.textContent = "Error: " + data.error;
+            }
+        } catch (err) {
+            statusDiv.textContent = "Could not connect to server.";
+        }
+        submitBtn.disabled = false;
+    });
+</script>
+
+</body>
+</html>
