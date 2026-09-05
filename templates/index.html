@@ -667,6 +667,49 @@
             position: relative;
             z-index: 1;
         }
+
+        /* ── MOBILE / NARROW VIEWPORTS ──
+           The dashboard was a fixed 2-column grid with no breakpoint, so on
+           phone-width screens each card was squeezed to ~half the viewport
+           and the Start Recording / Analyze buttons couldn't both fit in
+           their row -- Analyze got clipped off-screen. Stack everything to
+           a single column below 700px, and let the button row wrap so
+           neither button ever gets cut off. */
+        @media (max-width: 700px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .record-card,
+            .upload-card,
+            .result-card {
+                grid-column: 1;
+            }
+
+            .record-card {
+                grid-row: 1;
+            }
+
+            .upload-card {
+                grid-row: 2;
+            }
+
+            .result-card {
+                grid-row: 3;
+            }
+
+            .btn-row {
+                flex-wrap: wrap;
+            }
+
+            .btn-row .btn {
+                flex: 1 1 100%;
+            }
+
+            .result-inner {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 
