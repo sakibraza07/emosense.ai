@@ -2,13 +2,15 @@
 
 > Record your voice. Understand your emotion. Get intelligent feedback.
 
-EmoSense AI is a full-stack machine learning web application that detects human emotions from voice recordings in real time. It uses a trained neural network on the RAVDESS dataset to classify 8 emotions from audio features extracted using Librosa. The system includes JWT-based authentication, MongoDB for persistent storage, and is deployed live on Railway.
+EmoSense AI is a full-stack machine learning web application that detects human emotions from voice recordings in real time. It uses an SVM classifier trained on the RAVDESS dataset to classify 8 emotions from a rich set of audio features extracted using Librosa. The system includes JWT-based authentication, MongoDB for persistent storage, and is deployed live on Render.
 
 ---
 
 ## 🚀 Live Demo
 
-🌐 **[https://emosenseai-production.up.railway.app](https://emosenseai-production.up.railway.app)**
+🌐 **[https://emosense-ai-wscy.onrender.com](https://emosense-ai-wscy.onrender.com)**
+
+> Hosted on Render's free tier — the app spins down after periods of inactivity, so the first request after a while may take 30-50s to wake up.
 
 ---
 
@@ -19,7 +21,8 @@ EmoSense AI is a full-stack machine learning web application that detects human 
 - ✅ Per-user session history with date, time, and feedback
 - ✅ Upload pre-recorded audio files (.wav, .mp3, .webm)
 - ✅ Beautiful dashboard UI with live waveform animation
-- ✅ Deployed on Railway — accessible 24/7
+- ✅ Deployed on Render via Docker
+- ✅ Retrained with a richer 269-feature set, data augmentation, and cross-validated model selection — accuracy up from 72.92% to 83.33%
 
 ---
 
@@ -29,8 +32,8 @@ EmoSense AI is a full-stack machine learning web application that detects human 
 2. User records voice via the browser microphone or uploads an audio file
 3. Audio is sent to a Flask REST API with the JWT token in the request header
 4. Middleware validates the token before processing the request
-5. Backend extracts **MFCC**, **Chroma**, and **Mel Spectrogram** features using Librosa
-6. Features are scaled and passed to a trained **MLPClassifier** neural network
+5. Backend extracts **MFCC (+ delta/delta-delta)**, **Chroma**, **log-scaled Mel Spectrogram**, **spectral contrast**, **zero-crossing rate**, and **RMS energy** using Librosa (269 features total)
+6. Features are scaled and passed to a trained **SVM (RBF kernel)** classifier, selected via cross-validation over MLP, SVM, and Random Forest candidates
 7. Detected emotion and personalized AI feedback (via Gemini) are returned as JSON
 8. Result is displayed on the dashboard and saved to MongoDB for history tracking
 
@@ -40,11 +43,28 @@ EmoSense AI is a full-stack machine learning web application that detects human 
 
 | Metric | Value |
 |---|---|
-| Dataset | RAVDESS (24 actors, 1440 audio files) |
-| Features | MFCC (40) + Chroma (12) + Mel Spectrogram (128) = 180 features |
-| Model | MLPClassifier — hidden layers (256, 128) |
-| Accuracy | **72.92%** on 20% test split |
+| Dataset | RAVDESS (24 actors, 1440 audio files), 4x'd via augmentation (noise, pitch shift, time stretch) to 5,760 training examples |
+| Features | MFCC + delta + delta-delta (120) + Chroma (12) + log-Mel Spectrogram (128) + spectral contrast (7) + ZCR (1) + RMS (1) = 269 features |
+| Model | SVM (RBF kernel, C=50) — selected via 5-fold cross-validation over MLP, SVM, and Random Forest |
+| Accuracy | **83.33%** on held-out 20% test split (up from 72.92% on the original 180-feature MLP) |
 | Emotions | Neutral, Calm, Happy, Sad, Angry, Fearful, Disgust, Surprised |
+
+<details>
+<summary>Per-class performance</summary>
+
+| Emotion | Precision | Recall | F1-score |
+|---|---|---|---|
+| Neutral | 0.79 | 0.69 | 0.74 |
+| Calm | 0.76 | 0.91 | 0.83 |
+| Happy | 0.81 | 0.82 | 0.81 |
+| Sad | 0.76 | 0.76 | 0.76 |
+| Angry | 0.92 | 0.86 | 0.89 |
+| Fearful | 0.85 | 0.90 | 0.88 |
+| Disgust | 0.87 | 0.82 | 0.84 |
+| Surprised | 0.91 | 0.84 | 0.87 |
+
+Neutral is the weakest class — RAVDESS has fewer neutral samples than other emotions.
+</details>
 
 ---
 
@@ -57,10 +77,10 @@ EmoSense AI is a full-stack machine learning web application that detects human 
 | Authentication | JWT (PyJWT), bcrypt |
 | Database | MongoDB Atlas (pymongo) |
 | ML / Audio | Librosa, Scikit-learn, NumPy |
-| Model | MLPClassifier (scikit-learn) |
+| Model | SVM — RBF kernel (scikit-learn) |
 | AI Feedback | Google Gemini API |
 | Audio Processing | ffmpeg, pydub, soundfile |
-| Deployment | Railway |
+| Deployment | Render (Docker) |
 
 ---
 
@@ -72,7 +92,8 @@ emosense.ai/
 ├── config.py                # Path and environment configuration
 ├── db.py                    # MongoDB connection
 ├── requirements.txt         # Python dependencies
-├── Procfile                 # Railway/Render deployment config
+├── Procfile                 # Gunicorn start command
+├── Dockerfile               # Render deployment config
 ├── .env                     # Environment variables (not committed)
 ├── .gitignore
 │
@@ -83,7 +104,7 @@ emosense.ai/
 │   └── routes.py            # /auth/register and /auth/login endpoints
 │
 ├── models/
-│   ├── model.pkl            # Trained MLPClassifier
+│   ├── model.pkl            # Trained SVM classifier
 │   └── scaler.pkl           # StandardScaler
 │
 ├── services/
@@ -91,7 +112,7 @@ emosense.ai/
 │   └── feedback_service.py  # Gemini AI feedback generation
 │
 ├── utils/
-│   └── audio_features.py    # MFCC/Chroma/Mel extraction
+│   └── audio_features.py    # Shared feature extraction (used by both training and inference)
 │
 ├── static/
 │   └── js/
@@ -101,8 +122,8 @@ emosense.ai/
 │   └── index.html           # Dashboard UI
 │
 └── training/
-    ├── train_model.py        # Model training script
-    └── preprocessing.py      # Feature extraction from RAVDESS
+    ├── train_model.py        # Cross-validates MLP/SVM/RandomForest, grid-searches the winner
+    └── preprocessing.py      # Builds features.npy/labels.npy from RAVDESS, with augmentation
 ```
 
 ---
@@ -154,14 +175,19 @@ python3 app.py
 ## 🔁 Retrain the Model (Optional)
 
 ```bash
-# Step 1 — Extract features from dataset
-python3 training/preprocessing.py
+# Step 1 — Extract features from dataset (pass the path to the unzipped
+# Audio_Speech_Actors_01-24 folder). Includes 4x data augmentation by default.
+python3 training/preprocessing.py /path/to/Audio_Speech_Actors_01-24
 
-# Step 2 — Train and save the model
+# Step 2 — Cross-validates MLP/SVM/RandomForest, grid-searches the winner,
+# and saves model.pkl + scaler.pkl
 python3 training/train_model.py
+
+# Step 3 — Move the new model files into place
+mv model.pkl scaler.pkl models/
 ```
 
-> ⚠️ The RAVDESS dataset is NOT included in this repo. Download it from [Zenodo](https://zenodo.org/record/1188976).
+> ⚠️ The RAVDESS dataset is NOT included in this repo. Download **`Audio_Speech_Actors_01-24.zip`** (audio-only, ~200MB — not the full audio-video set) from [Zenodo](https://zenodo.org/record/1188976).
 
 ---
 
@@ -184,7 +210,7 @@ python3 training/train_model.py
 - [ ] Real-time streaming emotion detection
 - [ ] Share emotion result cards
 - [ ] Mobile-optimized UI
-- [ ] Improve model accuracy with deep learning (CNN on spectrograms)
+- [ ] Further accuracy gains with a CNN trained directly on raw spectrograms (current approach uses averaged hand-crafted features)
 
 ---
 
