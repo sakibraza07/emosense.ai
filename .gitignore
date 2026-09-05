@@ -15,3 +15,5 @@ training/*.npy
 
 # OS
 .DS_Store
+features.npy
+labels.npy

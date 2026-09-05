@@ -1,108 +1,88 @@
-# import os
-# import librosa
-# import numpy as np
+"""
+Builds features.npy / labels.npy from the RAVDESS dataset, with
+augmentation to help the model generalize (RAVDESS is only 1440 clips
+across 8 classes, which is small).
 
-# dataset_path="/Users/asjadshaikh/Downloads/archive"
+Each real clip produces 4 training examples:
+  1. original
+  2. + background noise
+  3. pitch-shifted
+  4. time-stretched
 
-# features = []
-# labels = []
+This roughly 4x's the training set. Change AUGMENT below to False to
+reproduce the old behavior (original features only).
 
-# for actor_fold in os.listdir(dataset_path):
-#     actor_path=os.path.join(dataset_path,actor_fold)
-
-#     if os.path.isdir(actor_path):
-#         for file in os.listdir(actor_path):
-#             if file.endswith(".wav"):
-#                 parts=file.split("-")
-#                 emotion_num=parts[2]
-
-#                 file_path=os.path.join(actor_path,file)
-
-#                 signal,sample_rate=librosa.load(file_path,sr=None)
-
-#                 mfccs=librosa.feature.mfcc(
-#                     y=signal,
-#                     sr=sample_rate,
-#                     n_mfcc=40
-#                 )
-
-#                 mfccs_mean=np.mean(mfccs,axis=1)
-
-#                 features.append(mfccs_mean)
-#                 labels.append(emotion_num)
-
-#                 print(f"{file} --> Emotion: {emotion_num}")
-#                 print("MFCC Shape: ",mfccs_mean.shape)
-#                 print("-" * 40)
-
-# features = np.array(features)
-# labels = np.array(labels)
-
-# np.save("features.npy", features)
-# np.save("labels.npy", labels)
-
-# print("Saved features and labels successfully.")
+Usage:
+    python preprocessing.py /path/to/ravdess/root
+"""
 import os
-import librosa
+import sys
 import numpy as np
 
-dataset_path="/Users/asjadshaikh/Downloads/archive"
+# training/preprocessing.py lives in training/, but the feature extractor
+# lives in utils/ (it's shared with the live app for inference). Add the
+# project root to the path so both scripts import the exact same file --
+# using two separate copies risks them drifting apart, which breaks accuracy
+# silently (train-time features != inference-time features).
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.audio_features import extract_features
 
-features = []
-labels = []
+AUGMENT = True
 
-for actor_fold in os.listdir(dataset_path):
-    actor_path=os.path.join(dataset_path,actor_fold)
+def main():
+    if len(sys.argv) > 1:
+        dataset_path = sys.argv[1]
+    else:
+        dataset_path = "/Users/asjadshaikh/Downloads/archive"  # fallback to old default
 
-    if os.path.isdir(actor_path):
-        for file in os.listdir(actor_path):
-            if file.endswith(".wav"):
-                parts=file.split("-")
-                emotion_num=parts[2]
+    if not os.path.isdir(dataset_path):
+        print(f"Dataset path not found: {dataset_path}")
+        print("Usage: python preprocessing.py /path/to/ravdess/root")
+        sys.exit(1)
 
-                file_path=os.path.join(actor_path,file)
+    features = []
+    labels = []
+    variants = [None, "noise", "pitch", "stretch"] if AUGMENT else [None]
 
-                signal,sample_rate=librosa.load(file_path,sr=None)
+    n_files = 0
+    for actor_fold in sorted(os.listdir(dataset_path)):
+        actor_path = os.path.join(dataset_path, actor_fold)
+        if not os.path.isdir(actor_path):
+            continue
 
-                # 🔹 MFCC
-                mfccs=np.mean(
-                    librosa.feature.mfcc(
-                        y=signal,
-                        sr=sample_rate,
-                        n_mfcc=40
-                    ),
-                    axis=1
-                )
+        for file in sorted(os.listdir(actor_path)):
+            if not file.endswith(".wav"):
+                continue
 
-                # 🔹 Chroma
-                chroma = np.mean(
-                    librosa.feature.chroma_stft(
-                        y=signal,
-                        sr=sample_rate
-                    ),
-                    axis=1
-                )
+            parts = file.split("-")
+            emotion_num = parts[2]
+            file_path = os.path.join(actor_path, file)
+            n_files += 1
 
-                # 🔹 Mel Spectrogram
-                mel = np.mean(
-                    librosa.feature.melspectrogram(
-                        y=signal,
-                        sr=sample_rate
-                    ),
-                    axis=1
-                )
-
-                # 🔹 Combine all features
-                combined = np.concatenate([mfccs, chroma, mel])
-
+            for variant in variants:
+                try:
+                    combined = extract_features(file_path, augment=variant)
+                except Exception as e:
+                    print(f"Skipping {file} ({variant}): {e}")
+                    continue
                 features.append(combined)
                 labels.append(emotion_num)
 
-features = np.array(features)
-labels = np.array(labels)
+            if n_files % 100 == 0:
+                print(f"Processed {n_files} source files "
+                      f"({len(features)} total examples so far)...")
 
-np.save("features.npy", features)
-np.save("labels.npy", labels)
+    features = np.array(features)
+    labels = np.array(labels)
 
-print("New features saved.")
-print("Feature vector shape:", features.shape)
+    np.save("features.npy", features)
+    np.save("labels.npy", labels)
+
+    print("Done.")
+    print("Source files:", n_files)
+    print("Total examples (with augmentation):", features.shape[0])
+    print("Feature vector shape:", features.shape)
+
+
+if __name__ == "__main__":
+    main()
